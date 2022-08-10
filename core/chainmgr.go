@@ -1,10 +1,9 @@
-package chainmgr
+package core
 
 import (
 	"fmt"
 
 	"github.com/anee769/essensio/common"
-	"github.com/anee769/essensio/core"
 	"github.com/anee769/essensio/db"
 )
 
@@ -32,9 +31,9 @@ func (chain *ChainManager) String() string {
 
 // AddBlock generates and appends a Block to the chain for a given string data.
 // The generated block is stored in the database. Any error that occurs is returned.
-func (chain *ChainManager) AddBlock(data string) error {
+func (chain *ChainManager) AddBlock(txns Transactions) error {
 	// Create a new Block with the given data
-	block := core.NewBlock(data, chain.Head, chain.Height)
+	block := NewBlock(txns, chain.Head, chain.Height)
 
 	// Serialize the Block
 	blockData, err := block.Serialize()
@@ -127,7 +126,9 @@ func (chain *ChainManager) init() (err error) {
 	fmt.Println(">>>> New Blockchain Initialization. Creating Genesis Block <<<<")
 
 	// Create Genesis Block & serialize it
-	genesisBlock := core.NewBlock("genesis", common.NullHash(), 0)
+	genesisBlock := NewBlock(
+		Transactions{CoinbaseTxn(common.MinerAddress(), "Genesis Block Coinbase Transaction")},
+		common.NullHash(), 0)
 	genesisData, err := genesisBlock.Serialize()
 	if err != nil {
 		return fmt.Errorf("block serialize failed: %w", err)
@@ -173,4 +174,94 @@ func (chain *ChainManager) syncState() error {
 	}
 
 	return nil
+}
+
+func (chain *ChainManager) FindUnspentTransactions(address common.Address) (Transactions, error) {
+	var unspentTxs Transactions
+
+	spentTXOs := make(map[common.Hash][]int)
+
+	iter := chain.NewIterator()
+
+	for {
+		block, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, tx := range block.BlockTxns {
+			txID := tx.ID
+
+		Outputs:
+			for outIdx, out := range tx.Outputs {
+				if spentTXOs[txID] != nil {
+					for _, spentOut := range spentTXOs[txID] {
+						if spentOut == outIdx {
+							continue Outputs
+						}
+					}
+				}
+				if out.CanBeUnlocked(address) {
+					unspentTxs = append(unspentTxs, tx)
+				}
+			}
+			if tx.IsCoinbase() == false {
+				for _, in := range tx.Inputs {
+					if in.CanUnlock(address) {
+						inTxID := in.ID
+						spentTXOs[inTxID] = append(spentTXOs[inTxID], in.Out)
+					}
+				}
+			}
+		}
+
+		if len(block.Priori) == 0 {
+			break
+		}
+	}
+	return unspentTxs, nil
+}
+
+func (chain *ChainManager) FindUTXO(address common.Address) ([]TxOutput, error) {
+	var UTXOs []TxOutput
+	unspentTransactions, err := chain.FindUnspentTransactions(address)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tx := range unspentTransactions {
+		for _, out := range tx.Outputs {
+			if out.CanBeUnlocked(address) {
+				UTXOs = append(UTXOs, out)
+			}
+		}
+	}
+	return UTXOs, nil
+}
+
+func (chain *ChainManager) FindSpendableOutputs(address common.Address, amount int) (int, map[common.Hash][]int, error) {
+	unspentOuts := make(map[common.Hash][]int)
+	unspentTxs, err := chain.FindUnspentTransactions(address)
+	if err != nil {
+		return -1, nil, err
+	}
+	accumulated := 0
+
+Work:
+	for _, tx := range unspentTxs {
+		txID := tx.ID
+
+		for outIdx, out := range tx.Outputs {
+			if out.CanBeUnlocked(address) && accumulated < amount {
+				accumulated += out.Value
+				unspentOuts[txID] = append(unspentOuts[txID], outIdx)
+
+				if accumulated >= amount {
+					break Work
+				}
+			}
+		}
+	}
+
+	return accumulated, unspentOuts, nil
 }

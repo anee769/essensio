@@ -16,5 +16,5 @@ func NullAddress() Address {
 
 // MinerAddress returns the Address to use for Coinbase Transactions
 func MinerAddress() Address {
-	return "manish"
+	return "Aneesh"
 }

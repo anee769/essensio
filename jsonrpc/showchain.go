@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/anee769/essensio/core"
 )
 
 type ShowChainArgs struct{}
@@ -16,13 +18,14 @@ type ShowChainResult struct {
 
 type ChainBlock struct {
 	Height    uint64 `json:"height"`
+	Nonce     uint64 `json:"nonce"`
 	Timestamp string `json:"timestamp"`
 
 	BlockHash     string `json:"block_hash"`
 	PrevBlockHash string `json:"prev_block_hash"`
 
-	Nonce uint64 `json:"nonce"`
-	Data  string `json:"data"`
+	TxnCount          int               `json:"txn_count"`
+	BLockTransactions core.Transactions `json:"data"`
 }
 
 func (api *API) ShowChain(r *http.Request, args *ShowChainArgs, result *ShowChainResult) error {
@@ -42,12 +45,13 @@ func (api *API) ShowChain(r *http.Request, args *ShowChainArgs, result *ShowChai
 		}
 
 		chainresult.Blocks = append(chainresult.Blocks, ChainBlock{
-			Height:        uint64(block.BlockHeight),
-			Timestamp:     time.Unix(block.Timestamp, 0).Format(time.RFC3339),
-			BlockHash:     block.BlockHash.Hex(),
-			PrevBlockHash: block.Priori.Hex(),
-			Nonce:         uint64(block.Nonce),
-			Data:          string(block.BlockData),
+			Height:            uint64(block.BlockHeight),
+			Timestamp:         time.Unix(block.Timestamp, 0).Format(time.RFC3339),
+			BlockHash:         block.BlockHash.Hex(),
+			PrevBlockHash:     block.Priori.Hex(),
+			Nonce:             uint64(block.Nonce),
+			TxnCount:          block.TxnCount(),
+			BLockTransactions: block.BlockTxns,
 		})
 	}
 

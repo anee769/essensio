@@ -3,15 +3,15 @@ package jsonrpc
 import (
 	"log"
 
-	"github.com/anee769/essensio/core/chainmgr"
+	"github.com/anee769/essensio/core"
 )
 
 type API struct {
-	chain *chainmgr.ChainManager
+	chain *core.ChainManager
 }
 
 func NewAPI() *API {
-	chain, err := chainmgr.NewChainManager()
+	chain, err := core.NewChainManager()
 	if err != nil {
 		log.Fatalln("Failed to Start Blockchain:", err)
 	}

@@ -14,8 +14,8 @@ type Block struct {
 
 	// Number of blocks preceding the current block
 	BlockHeight int64
-	// Raw data of the block (placeholder for transactions)
-	BlockData []byte
+	// Slice of Transactions
+	BlockTxns Transactions
 	// Hash of the block header
 	BlockHash common.Hash
 }
@@ -27,7 +27,7 @@ func (block *Block) String() string {
 	s.WriteString(fmt.Sprintf("=======[%v][%v]\n", block.BlockHeight, time.Unix(block.Timestamp, 0)))
 	s.WriteString(fmt.Sprintf("Block Hash: 0x%x\n", block.BlockHash))
 	s.WriteString(fmt.Sprintf("Priori Hash: 0x%x\n", block.Priori))
-	s.WriteString(fmt.Sprintf("Data: %v\n", string(block.BlockData)))
+	s.WriteString(fmt.Sprintf("Data: %v\n", block.BlockTxns))
 	s.WriteString(fmt.Sprintf("Nonce: %v\n", block.Nonce))
 	s.WriteString("=========================================\n")
 
@@ -36,14 +36,15 @@ func (block *Block) String() string {
 
 // NewBlock generates a new Block for some given data,
 // the hash of the previous block and the block height
-func NewBlock(data string, priori common.Hash, height int64) *Block {
+func NewBlock(txns Transactions, priori common.Hash, height int64) *Block {
 	block := &Block{
-		BlockData:   []byte(data),
+		BlockTxns:   txns,
 		BlockHeight: height,
 	}
 
 	// Generate the hash of the data
-	summary := common.Hash256(block.BlockData)
+	summary := GenerateSummary(txns)
+
 	// Create a BlockHeader with the priori and summary
 	header := NewBlockHeader(priori, summary)
 	block.BlockHeader = header
@@ -52,6 +53,11 @@ func NewBlock(data string, priori common.Hash, height int64) *Block {
 	block.BlockHash = block.BlockHeader.Mint()
 
 	return block
+}
+
+// TxnCount returns the number of Transaction items in the Block
+func (block Block) TxnCount() int {
+	return len(block.BlockTxns)
 }
 
 // Serialize implements the common.Serializable interface for Block.

@@ -1,10 +1,9 @@
-package chainmgr
+package core
 
 import (
 	"fmt"
 
 	"github.com/anee769/essensio/common"
-	"github.com/anee769/essensio/core"
 	"github.com/anee769/essensio/db"
 )
 
@@ -24,7 +23,7 @@ func (chain *ChainManager) NewIterator() *ChainIterator {
 
 // Next returns the next Block in the ChainIterator.
 // Returns an error if a Block is not found or is invalid.
-func (iter *ChainIterator) Next() (*core.Block, error) {
+func (iter *ChainIterator) Next() (*Block, error) {
 	// Find the Block with hash represented by the iterator cursor
 	data, err := iter.database.GetEntry(iter.cursor.Bytes())
 	if err != nil {
@@ -32,7 +31,7 @@ func (iter *ChainIterator) Next() (*core.Block, error) {
 	}
 
 	// Create a new Block and deserialize the block data into it
-	block := new(core.Block)
+	block := new(Block)
 	if err := block.Deserialize(data); err != nil {
 		return nil, fmt.Errorf("block deserialize failed: %w", err)
 	}

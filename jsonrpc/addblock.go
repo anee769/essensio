@@ -4,10 +4,19 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/anee769/essensio/common"
+	"github.com/anee769/essensio/core"
 )
 
 type AddBlockArgs struct {
-	BlockData string `json:"block_data"`
+	Transactions []TransactionInput `json:"transactions"`
+}
+
+type TransactionInput struct {
+	To    string `json:"to"`
+	From  string `json:"from"`
+	Value int    `json:"value"`
 }
 
 type AddBlockResult struct {
@@ -18,11 +27,17 @@ type AddBlockResult struct {
 func (api *API) AddBlock(r *http.Request, args *AddBlockArgs, result *AddBlockResult) error {
 	log.Println("'AddBlock' Called")
 
-	if args.BlockData == "" {
-		return fmt.Errorf("no input data for block")
+	if len(args.Transactions) == 0 {
+		return fmt.Errorf("no transactions for block")
 	}
 
-	if err := api.chain.AddBlock(args.BlockData); err != nil {
+	transactions := make(core.Transactions, 0, len(args.Transactions))
+	for _, txn := range args.Transactions {
+		newtxn := core.NewTransaction(common.Address(txn.From), common.Address(txn.To), txn.Value, api.chain)
+		transactions = append(transactions, newtxn)
+	}
+
+	if err := api.chain.AddBlock(transactions); err != nil {
 		return fmt.Errorf("failed to add block: %w", err)
 	}
 
